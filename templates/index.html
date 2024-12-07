@@ -1,0 +1,219 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <h1 class="text-4xl font-bold text-green-500 mb-8 font-mono">Student Performance Matrix</h1>
+    
+    <!-- Student Selection -->
+    <div class="mb-8">
+        <select id="studentSelector" class="bg-gray-800 text-green-400 border border-green-500 rounded-md p-2 font-mono focus:outline-none focus:ring-2 focus:ring-green-500">
+            <option value="">Select Student</option>
+            <!-- Will be populated dynamically -->
+        </select>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 p-6">
+            <h3 class="text-lg font-semibold text-green-400 mb-2 font-mono">Average Grade</h3>
+            <p class="text-3xl font-bold text-green-500" id="avgGrade">--</p>
+        </div>
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 p-6">
+            <h3 class="text-lg font-semibold text-green-400 mb-2 font-mono">Completed Courses</h3>
+            <p class="text-3xl font-bold text-green-500" id="completedCourses">--</p>
+        </div>
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 p-6">
+            <h3 class="text-lg font-semibold text-green-400 mb-2 font-mono">Ongoing Courses</h3>
+            <p class="text-3xl font-bold text-green-500" id="ongoingCourses">--</p>
+        </div>
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 p-6">
+            <h3 class="text-lg font-semibold text-green-400 mb-2 font-mono">Performance Index</h3>
+            <p class="text-3xl font-bold text-green-500" id="perfIndex">--</p>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Grade Distribution Chart -->
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 p-6">
+            <h3 class="text-lg font-semibold text-green-400 mb-4 font-mono">Grade Matrix Distribution</h3>
+            <canvas id="gradeDistribution"></canvas>
+        </div>
+        
+        <!-- Performance Trend Chart -->
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 p-6">
+            <h3 class="text-lg font-semibold text-green-400 mb-4 font-mono">Performance Analytics</h3>
+            <canvas id="performanceTrend"></canvas>
+        </div>
+    </div>
+
+    <!-- Course Progress -->
+    <div class="mt-8">
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 p-6">
+            <h3 class="text-lg font-semibold text-green-400 mb-4 font-mono">Course Progress Matrix</h3>
+            <canvas id="courseProgress"></canvas>
+        </div>
+    </div>
+
+    <!-- Course Details Table -->
+    <div class="mt-8">
+        <div class="bg-gray-800 border border-green-500 rounded-lg shadow-lg shadow-green-500/20 overflow-hidden">
+            <table class="min-w-full divide-y divide-green-500">
+                <thead class="bg-gray-900">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-mono font-medium text-green-400 uppercase tracking-wider">Course Code</th>
+                        <th class="px-6 py-3 text-left text-xs font-mono font-medium text-green-400 uppercase tracking-wider">Course Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-mono font-medium text-green-400 uppercase tracking-wider">Grade</th>
+                        <th class="px-6 py-3 text-left text-xs font-mono font-medium text-green-400 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-mono font-medium text-green-400 uppercase tracking-wider">Progress</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-gray-800 divide-y divide-green-500/30" id="courseTableBody">
+                    <!-- Will be populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Fetch and populate student list
+        fetch('/api/students/')
+            .then(response => response.json())
+            .then(data => {
+                const studentSelector = document.getElementById('studentSelector');
+                data.forEach(student => {
+                    const option = document.createElement('option');
+                    option.value = student.id;
+                    option.textContent = student.name;
+                    studentSelector.appendChild(option);
+                });
+            })
+            .catch(error => console.error('Error fetching students:', error));
+
+        // Add student selection change handler
+        const studentSelector = document.getElementById('studentSelector');
+        studentSelector.addEventListener('change', function() {
+            const selectedStudentId = this.value;
+            if (selectedStudentId) {
+                updateStudentData(selectedStudentId);
+            } else {
+                clearData();
+            }
+        });
+
+        function updateStudentData(studentId) {
+            // Fetch and update average grade
+            fetch(`/api/student-average-grade/?student_id=${studentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('avgGrade').textContent = data.average_grade.toFixed(2);
+                })
+                .catch(error => console.error('Error fetching average grade:', error));
+
+            // Fetch and update completed courses
+            fetch(`/api/student-completed-courses/?student_id=${studentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('completedCourses').textContent = data.length;
+                    updateCourseTable(data, 'Completed');
+                })
+                .catch(error => console.error('Error fetching completed courses:', error));
+
+            // Fetch and update ongoing courses
+            fetch(`/api/student-ongoing-courses/?student_id=${studentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('ongoingCourses').textContent = data.length;
+                    updateCourseTable(data, 'Ongoing');
+                })
+                .catch(error => console.error('Error fetching ongoing courses:', error));
+        }
+
+        function clearData() {
+            document.getElementById('avgGrade').textContent = '--';
+            document.getElementById('completedCourses').textContent = '--';
+            document.getElementById('ongoingCourses').textContent = '--';
+            document.getElementById('perfIndex').textContent = '--';
+            document.getElementById('courseTableBody').innerHTML = '';
+            // Clear charts when implemented
+        }
+
+        function updateCourseTable(courses, status) {
+            const tableBody = document.getElementById('courseTableBody');
+            courses.forEach(course => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400">${course.course_code || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400">${course.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400">${course.grade || '--'}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400">${status}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-green-400">
+                        ${status === 'Completed' ? '100%' : 'In Progress'}
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+    });
+
+    // Grade Distribution Chart
+    const gradeCtx = document.getElementById('gradeDistribution').getContext('2d');
+    new Chart(gradeCtx, {
+        type: 'bar',
+        data: {
+            labels: ['A', 'B', 'C', 'D', 'F'],
+            datasets: [{
+                label: 'Number of Students',
+                data: [30, 45, 35, 25, 15],
+                backgroundColor: [
+                    'rgba(34, 197, 94, 0.6)',
+                    'rgba(59, 130, 246, 0.6)',
+                    'rgba(234, 179, 8, 0.6)',
+                    'rgba(249, 115, 22, 0.6)',
+                    'rgba(239, 68, 68, 0.6)'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            }
+        }
+    });
+
+    // Performance Trend Chart
+    const trendCtx = document.getElementById('performanceTrend').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+            datasets: [{
+                label: 'Average Grade',
+                data: [75, 78, 80, 82, 85, 83],
+                borderColor: 'rgb(59, 130, 246)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top',
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    min: 60,
+                    max: 100
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}
